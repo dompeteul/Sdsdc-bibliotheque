@@ -18,3 +18,4 @@ export const getClient = async () => {
   const client = await pool.connect();
   return client;
 };
+export default pool;
