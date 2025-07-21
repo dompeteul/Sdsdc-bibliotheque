@@ -1,6 +1,3 @@
-# Sdsdc-bibliotheque
-Systeme bibliothecaire de la Societe des Sciences de Chatellerault
-
 # 📚 Library Management System
 
 A modern library management system with public catalog browsing and member consultation booking.
