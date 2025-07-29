@@ -185,11 +185,14 @@ app.use('/api/*', (req, res) => {
 
 async function initializeDatabase() {
   try {
-    // Test database connection with retry logic
-    const { testConnection, query } = await import('./utils/database');
+    // Import database functions
+    const { query } = await import('./utils/database');
     
     console.log('🔧 Initializing database connection...');
-    await testConnection(); // This now has retry logic built-in
+    
+    // Test connection with a simple query
+    await query('SELECT NOW() as current_time');
+    console.log('✅ Database connection successful!');
     
     console.log('📊 Checking if database has existing data...');
     const result = await query('SELECT COUNT(*) as count FROM books');
