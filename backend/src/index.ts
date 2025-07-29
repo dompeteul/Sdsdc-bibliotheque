@@ -1,3 +1,4 @@
+import { importData } from './scripts/importData';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -129,9 +130,38 @@ app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'API route not found' });
 });
 
-app.listen(PORT, () => {
+async function initializeDatabase() {
+  try {
+    // Check if books table has any data
+    const { query } = await import('./utils/database');
+    const result = await query('SELECT COUNT(*) as count FROM books');
+    const bookCount = parseInt(result.rows[0].count);
+    
+    if (bookCount === 0) {
+      console.log('📚 Database is empty. Running data import...');
+      await importData();
+      console.log('✅ Data import completed!');
+    } else {
+      console.log(`📚 Database already has ${bookCount} books. Skipping import.`);
+    }
+  } catch (error) {
+    if (error.message?.includes('relation "books" does not exist')) {
+      console.log('📚 Database tables don\'t exist. Running data import...');
+      await importData();
+      console.log('✅ Data import completed!');
+    } else {
+      console.error('Error checking database:', error);
+    }
+  }
+}
+
+
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📚 Library Management API ready`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  
+  // Initialize database on startup
+  await initializeDatabase();
 });
