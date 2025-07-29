@@ -43,9 +43,13 @@ app.use(helmet({
   },
 }));
 
+// CORS configuration for separate frontend service
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://your-app.railway.app'] 
+    ? [
+        process.env.FRONTEND_URL, 
+        /^https:\/\/.*\.railway\.app$/  // Allow any Railway subdomain
+      ]
     : ['http://localhost:3000'],
   credentials: true
 }));
@@ -74,110 +78,151 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Simple homepage for production
-if (process.env.NODE_ENV === 'production') {
-  app.get('/', (req, res) => {
-    res.send(`
-      <html>
-        <head>
-          <title>SdSdC Bibliothèque API</title>
-          <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            h1 { color: #2563eb; }
-            .endpoint { background: #f3f4f6; padding: 10px; margin: 10px 0; border-radius: 5px; }
-            a { color: #2563eb; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <h1>🚀 SdSdC Bibliothèque API</h1>
-          <p>Backend API is running successfully!</p>
+// Simple homepage for backend API service
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SdSdC Bibliothèque API</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px; margin: 0 auto; padding: 20px; 
+            background: #f8fafc; color: #1e293b;
+          }
+          .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          h1 { color: #2563eb; margin-bottom: 0.5rem; }
+          .status { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.875rem; margin-bottom: 1rem; }
+          .endpoint { background: #f1f5f9; padding: 15px; margin: 15px 0; border-radius: 6px; border-left: 4px solid #3b82f6; }
+          .endpoint strong { color: #1e40af; }
+          a { color: #2563eb; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+          .section { margin: 2rem 0; }
+          .demo-credentials { background: #fef3c7; border: 1px solid #f59e0b; padding: 1rem; border-radius: 6px; }
+          .frontend-link { background: #dbeafe; border: 1px solid #3b82f6; padding: 1rem; border-radius: 6px; margin: 1rem 0; }
+          .footer { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 0.875rem; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>📚 SdSdC Bibliothèque API</h1>
+          <div class="status">✅ Backend API en ligne</div>
           
-          <h2>Available Public Endpoints:</h2>
-          <div class="endpoint">
-            <strong><a href="/api/health">GET /api/health</a></strong><br>
-            Health check endpoint
-          </div>
-          <div class="endpoint">
-            <strong><a href="/api/books">GET /api/books</a></strong><br>
-            Browse books catalog (public access)
-          </div>
-          <div class="endpoint">
-            <strong><a href="/api/books/stats">GET /api/books/stats</a></strong><br>
-            Library statistics
-          </div>
+          <p>Système de gestion de bibliothèque de la Société des Sciences de Châtellerault</p>
           
-          <h2>Authentication Endpoints:</h2>
-          <div class="endpoint">
-            <strong>POST /api/auth/register</strong><br>
-            Register new user
-          </div>
-          <div class="endpoint">
-            <strong>POST /api/auth/login</strong><br>
-            User login
+          <div class="frontend-link">
+            <strong>🌐 Interface Web :</strong> L'interface utilisateur est déployée séparément.<br>
+            <small>Consultez votre tableau de bord Railway pour l'URL du service frontend.</small>
           </div>
           
-          <h2>Member Endpoints (requires authentication):</h2>
-          <div class="endpoint">
-            <strong>POST /api/books</strong><br>
-            Add new book (members only)
-          </div>
-          <div class="endpoint">
-            <strong>POST /api/consultations</strong><br>
-            Request consultation (members only)
+          <div class="section">
+            <h2>🔓 Endpoints Publics</h2>
+            <div class="endpoint">
+              <strong><a href="/api/health">GET /api/health</a></strong><br>
+              État de santé de l'API
+            </div>
+            <div class="endpoint">
+              <strong><a href="/api/books">GET /api/books</a></strong><br>
+              Parcourir le catalogue (accès libre)
+            </div>
+            <div class="endpoint">
+              <strong><a href="/api/books/stats">GET /api/books/stats</a></strong><br>
+              Statistiques de la bibliothèque
+            </div>
           </div>
           
-          <p><em>Status: Backend deployed successfully. Frontend will be added in next deployment.</em></p>
-          <p><strong>Next steps:</strong> Import your Excel data using the import script.</p>
-        </body>
-      </html>
-    `);
-  });
-}
-
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
+          <div class="section">
+            <h2>🔐 Authentification</h2>
+            <div class="endpoint">
+              <strong>POST /api/auth/register</strong><br>
+              Inscription nouvel utilisateur
+            </div>
+            <div class="endpoint">
+              <strong>POST /api/auth/login</strong><br>
+              Connexion utilisateur
+            </div>
+            
+            <div class="demo-credentials">
+              <strong>🔑 Compte de démonstration :</strong><br>
+              Email: <code>admin@library.com</code><br>
+              Mot de passe: <code>admin123</code>
+            </div>
+          </div>
+          
+          <div class="section">
+            <h2>👥 Endpoints Membres</h2>
+            <div class="endpoint">
+              <strong>POST /api/books</strong><br>
+              Ajouter un nouveau livre (membres uniquement)
+            </div>
+            <div class="endpoint">
+              <strong>POST /api/consultations</strong><br>
+              Demander une consultation (membres uniquement)
+            </div>
+            <div class="endpoint">
+              <strong>GET /api/consultations</strong><br>
+              Voir toutes les demandes (admin/bibliothécaire uniquement)
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p><strong>⚙️ Architecture :</strong> Backend API séparé du frontend React</p>
+            <p><strong>📋 Version :</strong> 1.0.0 | <strong>🌍 Environnement :</strong> Production</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
-// 404 handler for API routes
+// 404 handler for API routes only
 app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'API route not found' });
 });
 
 async function initializeDatabase() {
   try {
-    // Check if books table has any data
-    const { query } = await import('./utils/database');
+    // Test database connection with retry logic
+    const { testConnection, query } = await import('./utils/database');
+    
+    console.log('🔧 Initializing database connection...');
+    await testConnection(); // This now has retry logic built-in
+    
+    console.log('📊 Checking if database has existing data...');
     const result = await query('SELECT COUNT(*) as count FROM books');
     const bookCount = parseInt(result.rows[0].count);
     
     if (bookCount === 0) {
-      console.log('📚 Database is empty. Running data import...');
+      console.log('📚 Database is empty. Running CSV data import...');
+      const { importData } = await import('./scripts/importData');
       await importData();
-      console.log('✅ Data import completed!');
+      console.log('✅ CSV data import completed!');
     } else {
       console.log(`📚 Database already has ${bookCount} books. Skipping import.`);
     }
   } catch (error: any) {
     if (error?.message?.includes('relation "books" does not exist')) {
-      console.log('📚 Database tables don\'t exist. Running data import...');
+      console.log('📚 Database tables don\'t exist. Running CSV data import...');
       try {
+        const { importData } = await import('./scripts/importData');
         await importData();
-        console.log('✅ Data import completed!');
+        console.log('✅ CSV data import completed!');
       } catch (importError: any) {
-        console.error('❌ Error during data import:', importError.message);
+        console.error('❌ Error during CSV data import:', importError.message);
+        console.error('🔍 Full error:', importError);
       }
     } else {
       console.error('❌ Error checking database:', error?.message || error);
+      console.error('🔍 Full error:', error);
+      
+      // Don't exit the process, let the server start anyway
+      console.log('⚠️ Continuing without database initialization...');
     }
   }
 }
-
 
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
