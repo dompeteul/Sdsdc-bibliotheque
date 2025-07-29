@@ -127,8 +127,9 @@ function parseCSV(csvContent: string): CSVBookRow[] {
     throw new Error('CSV file appears to be empty or malformed');
   }
 
-  // Parse header row
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"/, '').replace(/"$/, ''));
+  // Parse header row - handle BOM and clean up
+  const headerLine = lines[0].replace(/^\uFEFF/, ''); // Remove BOM if present
+  const headers = headerLine.split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
   console.log('CSV Headers found:', headers);
 
   const data: CSVBookRow[] = [];
@@ -137,17 +138,20 @@ function parseCSV(csvContent: string): CSVBookRow[] {
     const line = lines[i].trim();
     if (!line) continue; // Skip empty lines
 
-    // Simple CSV parsing (handles basic cases)
-    const values = line.split(',').map(v => v.trim().replace(/^"/, '').replace(/"$/, ''));
+    // Better CSV parsing that handles quoted fields and commas within quotes
+    const values = parseCSVLine(line);
     
     if (values.length < headers.length) {
-      console.warn(`Row ${i + 1} has fewer columns than headers. Skipping.`);
-      continue;
+      console.warn(`Row ${i + 1} has ${values.length} columns but expected ${headers.length}. Padding with empty values.`);
+      // Pad with empty strings
+      while (values.length < headers.length) {
+        values.push('');
+      }
     }
 
     const row: any = {};
     headers.forEach((header, index) => {
-      row[header] = values[index] || '';
+      row[header] = values[index]?.trim() || '';
     });
 
     data.push(row as CSVBookRow);
@@ -155,6 +159,31 @@ function parseCSV(csvContent: string): CSVBookRow[] {
 
   console.log(`Parsed ${data.length} rows from CSV`);
   return data;
+}
+
+function parseCSVLine(line: string): string[] {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add the last field
+  result.push(current.trim());
+  
+  // Clean quotes from values
+  return result.map(val => val.replace(/^["']|["']$/g, ''));
 }
 
 function readCSVFile(filePath: string): CSVBookRow[] {
@@ -327,16 +356,33 @@ async function insertBooks(books: any[]) {
 
   for (const book of books) {
     try {
-      await query(insertQuery, [
+      // Validate data before insertion
+      const values = [
         book.entry_id, book.location, book.section, book.title, book.subtitle,
         book.author_1, book.author_2, book.publisher, book.publication_date,
         book.isbn, book.format, book.page_count, book.summary,
         book.historical_period, book.general_theme, book.major_event,
         book.geography, book.groups_actors, book.sources
-      ]);
+      ];
+
+      // Check for NaN values
+      values.forEach((value, index) => {
+        if (value === 'NaN' || (typeof value === 'number' && isNaN(value))) {
+          console.warn(`Warning: NaN value found in book ${book.entry_id} at parameter ${index + 1}`);
+        }
+      });
+
+      await query(insertQuery, values);
       successCount++;
+      
+      if (successCount % 10 === 0) {
+        console.log(`📈 Progress: ${successCount}/${books.length} books inserted`);
+      }
     } catch (error) {
-      console.error(`Error inserting book with entry_id ${book.entry_id}:`, error);
+      console.error(`❌ Error inserting book with entry_id ${book.entry_id}:`);
+      console.error(`   Title: ${book.title}`);
+      console.error(`   Error: ${error.message}`);
+      console.error(`   Book data:`, JSON.stringify(book, null, 2));
       errorCount++;
     }
   }
