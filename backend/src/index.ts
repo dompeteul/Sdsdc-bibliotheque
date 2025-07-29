@@ -6,6 +6,25 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
 
+console.log('🔍 Environment Debug Info:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('DATABASE_URL length:', process.env.DATABASE_URL?.length);
+console.log('DATABASE_URL preview:', process.env.DATABASE_URL?.substring(0, 30) + '...');
+
+console.log('🔍 Database-related environment variables:');
+Object.keys(process.env).forEach(key => {
+  if (key.startsWith('DATABASE') || key.startsWith('PG') || key.startsWith('POSTGRES')) {
+    const value = process.env[key];
+    if (key.includes('PASSWORD') || key.includes('SECRET')) {
+      console.log(`${key}: [HIDDEN]`);
+    } else {
+      console.log(`${key}: ${value}`);
+    }
+  }
+});
+
 // Load environment variables
 dotenv.config();
 
