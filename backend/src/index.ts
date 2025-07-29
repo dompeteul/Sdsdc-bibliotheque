@@ -1,5 +1,3 @@
-
-// backend/src/index.ts
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,7 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
 
-/ Load environment variables
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -56,18 +54,64 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Serve static files from React build in production
+// Simple homepage for production
 if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../frontend/build');
-  app.use(express.static(buildPath));
-  
-  // Serve React app for all non-API routes
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(buildPath, 'index.html'));
-    } else {
-      res.status(404).json({ message: 'API route not found' });
-    }
+  app.get('/', (req, res) => {
+    res.send(`
+      <html>
+        <head>
+          <title>SdSdC Bibliothèque API</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            h1 { color: #2563eb; }
+            .endpoint { background: #f3f4f6; padding: 10px; margin: 10px 0; border-radius: 5px; }
+            a { color: #2563eb; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <h1>🚀 SdSdC Bibliothèque API</h1>
+          <p>Backend API is running successfully!</p>
+          
+          <h2>Available Public Endpoints:</h2>
+          <div class="endpoint">
+            <strong><a href="/api/health">GET /api/health</a></strong><br>
+            Health check endpoint
+          </div>
+          <div class="endpoint">
+            <strong><a href="/api/books">GET /api/books</a></strong><br>
+            Browse books catalog (public access)
+          </div>
+          <div class="endpoint">
+            <strong><a href="/api/books/stats">GET /api/books/stats</a></strong><br>
+            Library statistics
+          </div>
+          
+          <h2>Authentication Endpoints:</h2>
+          <div class="endpoint">
+            <strong>POST /api/auth/register</strong><br>
+            Register new user
+          </div>
+          <div class="endpoint">
+            <strong>POST /api/auth/login</strong><br>
+            User login
+          </div>
+          
+          <h2>Member Endpoints (requires authentication):</h2>
+          <div class="endpoint">
+            <strong>POST /api/books</strong><br>
+            Add new book (members only)
+          </div>
+          <div class="endpoint">
+            <strong>POST /api/consultations</strong><br>
+            Request consultation (members only)
+          </div>
+          
+          <p><em>Status: Backend deployed successfully. Frontend will be added in next deployment.</em></p>
+          <p><strong>Next steps:</strong> Import your Excel data using the import script.</p>
+        </body>
+      </html>
+    `);
   });
 }
 
