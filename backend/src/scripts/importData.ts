@@ -175,15 +175,57 @@ function cleanData(data: CSVBookRow[]): any[] {
   return data.map(row => {
     // Clean and format the data
     const publicationDate = row['Date de Publ.'] ? parseDate(row['Date de Publ.']) : null;
-    const isbn = row['ISBN'] ? String(row['ISBN']).replace(/[^\d]/g, '') : null;
-    const entryId = row['Ent. SdSdC'] ? parseInt(row['Ent. SdSdC']) : null;
-    const pageCount = row['nb pages'] ? parseInt(row['nb pages']) : null;
+    
+    // Clean ISBN - handle scientific notation and invalid values
+    let isbn = null;
+    if (row['ISBN']) {
+      const isbnStr = String(row['ISBN']).trim();
+      if (isbnStr && isbnStr !== '' && !isbnStr.includes('E') && !isbnStr.toLowerCase().includes('nan')) {
+        // Handle scientific notation (like 9.7828E+12)
+        if (isbnStr.includes('E')) {
+          try {
+            const numValue = parseFloat(isbnStr);
+            if (!isNaN(numValue)) {
+              isbn = Math.floor(numValue).toString();
+            }
+          } catch (e) {
+            isbn = null;
+          }
+        } else {
+          isbn = isbnStr.replace(/[^\d]/g, '') || null;
+        }
+      }
+    }
+    
+    // Clean entry_id
+    let entryId = null;
+    if (row['Ent. SdSdC']) {
+      const entryStr = String(row['Ent. SdSdC']).trim();
+      if (entryStr && entryStr !== '' && !entryStr.toLowerCase().includes('nan')) {
+        const parsed = parseInt(entryStr);
+        if (!isNaN(parsed)) {
+          entryId = parsed;
+        }
+      }
+    }
+    
+    // Clean page count
+    let pageCount = null;
+    if (row['nb pages']) {
+      const pageStr = String(row['nb pages']).trim();
+      if (pageStr && pageStr !== '' && !pageStr.toLowerCase().includes('nan') && pageStr !== '9999') {
+        const parsed = parseInt(pageStr);
+        if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
+          pageCount = parsed;
+        }
+      }
+    }
     
     return {
       entry_id: entryId,
       location: row['Localisation']?.trim() || null,
       section: row['Section']?.trim() || null,
-      title: row['Titre complet de l\'ouvrage']?.trim() || 'Titre non spécifié',
+      title: row['Titre complet de l\'ouvrage']?.trim() || 'Titre non spécifié',  
       subtitle: row['Sous titre']?.trim() || null,
       author_1: row['Auteur 1']?.trim() || null,
       author_2: row['auteur 2']?.trim() || null,
@@ -200,7 +242,13 @@ function cleanData(data: CSVBookRow[]): any[] {
       groups_actors: row['Groupes et acteurs']?.trim() || null,
       sources: row['Sources']?.trim() || null
     };
-  }).filter(row => row.entry_id && row.title && row.title !== 'Titre non spécifié'); // Filter out rows without essential data
+  }).filter(row => {
+    // Filter out invalid rows
+    if (!row.entry_id || !row.title || row.title === 'n\'importe quoi' || row.title === 'titre') {
+      return false;
+    }
+    return true;
+  });
 }
 
 function parseDate(dateStr: string): Date | null {
