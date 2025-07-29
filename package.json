@@ -1,21 +1,10 @@
 {
-  "name": "library-management-system",
+  "name": "sdsdc-bibliotheque",
   "version": "1.0.0",
-  "description": "Library management system with consultation booking",
+  "description": "Library management system backend",
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run install:deps && npm run build:frontend && npm run build:backend && npm run copy:frontend",
-    "install:deps": "cd backend && npm install && cd ../frontend && npm install",
-    "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build",
-    "copy:frontend": "cp -r frontend/build backend/frontend",
-    "start": "cd backend && npm start",
-    "postinstall": "npm run install:deps"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.0"
+    "build": "cd backend && npm install && npm run build",
+    "start": "cd backend && npm start"
   },
   "engines": {
     "node": ">=18.0.0",
