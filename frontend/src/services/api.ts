@@ -1,7 +1,17 @@
 import axios from 'axios';
 import { User, Book, ConsultationRequest, SearchFilters, PaginatedResponse } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+// API base URL - in production, use relative URLs since frontend and backend are served together
+const API_BASE_URL = process.env.REACT_APP_API_URL || (
+  process.env.NODE_ENV === 'production' ? '' : ''
+);
+
+console.log('🔗 API Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+  API_BASE_URL: API_BASE_URL,
+  using: API_BASE_URL || 'relative URLs'
+});
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
