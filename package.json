@@ -1,13 +1,20 @@
 {
   "name": "sdsdc-bibliotheque",
   "version": "1.0.0",
-  "description": "Library management system backend",
+  "description": "Library management system",
   "scripts": {
-    "build": "cd backend && npm install && npm run build",
-    "start": "cd backend && npm start"
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install && npm run build",
+    "start": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
   }
 }
