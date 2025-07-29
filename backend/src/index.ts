@@ -47,9 +47,9 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        process.env.FRONTEND_URL, 
+        process.env.FRONTEND_URL || '', 
         /^https:\/\/.*\.railway\.app$/  // Allow any Railway subdomain
-      ]
+      ].filter(Boolean) // Remove any empty strings
     : ['http://localhost:3000'],
   credentials: true
 }));
