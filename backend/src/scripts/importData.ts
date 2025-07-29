@@ -121,6 +121,31 @@ async function createTables() {
   console.log('Database tables created successfully!');
 }
 
+function parseCSVLine(line: string): string[] {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add the last field
+  result.push(current.trim());
+  
+  // Clean quotes from values
+  return result.map(val => val.replace(/^["']|["']$/g, ''));
+}
+
 function parseCSV(csvContent: string): CSVBookRow[] {
   const lines = csvContent.split('\n');
   if (lines.length < 2) {
@@ -161,31 +186,6 @@ function parseCSV(csvContent: string): CSVBookRow[] {
   return data;
 }
 
-function parseCSVLine(line: string): string[] {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  // Add the last field
-  result.push(current.trim());
-  
-  // Clean quotes from values
-  return result.map(val => val.replace(/^["']|["']$/g, ''));
-}
-
 function readCSVFile(filePath: string): CSVBookRow[] {
   console.log(`Reading CSV file: ${filePath}`);
   
@@ -217,7 +217,7 @@ function cleanData(data: CSVBookRow[]): any[] {
             if (!isNaN(numValue)) {
               isbn = Math.floor(numValue).toString();
             }
-          } catch (e) {
+          } catch (e: any) {
             isbn = null;
           }
         } else {
@@ -311,8 +311,8 @@ function parseDate(dateStr: string): Date | null {
     if (!isNaN(date.getTime())) {
       return date;
     }
-  } catch (error) {
-    console.warn(`Failed to parse date: ${dateStr}`);
+  } catch (error: any) {
+    console.warn(`Failed to parse date: ${dateStr}`, error.message);
   }
   
   return null;
@@ -378,7 +378,7 @@ async function insertBooks(books: any[]) {
       if (successCount % 10 === 0) {
         console.log(`📈 Progress: ${successCount}/${books.length} books inserted`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Error inserting book with entry_id ${book.entry_id}:`);
       console.error(`   Title: ${book.title}`);
       console.error(`   Error: ${error.message}`);
@@ -405,7 +405,7 @@ async function createDefaultAdmin() {
     `, ['admin@library.com', hashedPassword, 'Admin', 'User', 'admin']);
     
     console.log('Default admin user created: admin@library.com / admin123');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating admin user:', error);
   }
 }
@@ -470,7 +470,7 @@ async function main() {
     console.log(`📚 Imported ${cleanedBooks.length} books`);
     console.log('👤 Created default admin user: admin@library.com');
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error during CSV data import:', error);
     process.exit(1);
   }
