@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { query } from '../utils/database';
@@ -6,8 +5,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-interface ExcelBookRow {
-  'Ent. SdSdC': number;
+interface CSVBookRow {
+  'Ent. SdSdC': string;
   'Localisation': string;
   'Section': string;
   'Titre complet de l\'ouvrage': string;
@@ -15,10 +14,10 @@ interface ExcelBookRow {
   'Auteur 1'?: string;
   'auteur 2'?: string;
   'Editeur'?: string;
-  'Date de Publ.'?: Date;
-  'ISBN'?: number | string;
+  'Date de Publ.'?: string;
+  'ISBN'?: string;
   'Format'?: string;
-  'nb pages'?: number;
+  'nb pages'?: string;
   'résumé'?: string;
   'Pérlode Hist'?: string;
   'Thématique Générale'?: string;
@@ -122,31 +121,66 @@ async function createTables() {
   console.log('Database tables created successfully!');
 }
 
-function readExcelFile(filePath: string): ExcelBookRow[] {
-  console.log(`Reading Excel file: ${filePath}`);
-  
-  const workbook = XLSX.readFile(filePath);
-  const sheetName = 'Biblio';
-  
-  if (!workbook.Sheets[sheetName]) {
-    throw new Error(`Sheet "${sheetName}" not found in Excel file`);
+function parseCSV(csvContent: string): CSVBookRow[] {
+  const lines = csvContent.split('\n');
+  if (lines.length < 2) {
+    throw new Error('CSV file appears to be empty or malformed');
   }
 
-  const worksheet = workbook.Sheets[sheetName];
-  const jsonData = XLSX.utils.sheet_to_json(worksheet) as ExcelBookRow[];
+  // Parse header row
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"/, '').replace(/"$/, ''));
+  console.log('CSV Headers found:', headers);
+
+  const data: CSVBookRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+
+    // Simple CSV parsing (handles basic cases)
+    const values = line.split(',').map(v => v.trim().replace(/^"/, '').replace(/"$/, ''));
+    
+    if (values.length < headers.length) {
+      console.warn(`Row ${i + 1} has fewer columns than headers. Skipping.`);
+      continue;
+    }
+
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+
+    data.push(row as CSVBookRow);
+  }
+
+  console.log(`Parsed ${data.length} rows from CSV`);
+  return data;
+}
+
+function readCSVFile(filePath: string): CSVBookRow[] {
+  console.log(`Reading CSV file: ${filePath}`);
   
-  console.log(`Found ${jsonData.length} records in Excel file`);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`CSV file not found: ${filePath}`);
+  }
+
+  const csvContent = fs.readFileSync(filePath, 'utf-8');
+  const jsonData = parseCSV(csvContent);
+  
+  console.log(`Found ${jsonData.length} records in CSV file`);
   return jsonData;
 }
 
-function cleanData(data: ExcelBookRow[]): any[] {
+function cleanData(data: CSVBookRow[]): any[] {
   return data.map(row => {
     // Clean and format the data
-    const publicationDate = row['Date de Publ.'] ? new Date(row['Date de Publ.']) : null;
-    const isbn = row['ISBN'] ? String(row['ISBN']) : null;
+    const publicationDate = row['Date de Publ.'] ? parseDate(row['Date de Publ.']) : null;
+    const isbn = row['ISBN'] ? String(row['ISBN']).replace(/[^\d]/g, '') : null;
+    const entryId = row['Ent. SdSdC'] ? parseInt(row['Ent. SdSdC']) : null;
+    const pageCount = row['nb pages'] ? parseInt(row['nb pages']) : null;
     
     return {
-      entry_id: row['Ent. SdSdC'],
+      entry_id: entryId,
       location: row['Localisation']?.trim() || null,
       section: row['Section']?.trim() || null,
       title: row['Titre complet de l\'ouvrage']?.trim() || 'Titre non spécifié',
@@ -157,7 +191,7 @@ function cleanData(data: ExcelBookRow[]): any[] {
       publication_date: publicationDate,
       isbn: isbn,
       format: row['Format']?.trim() || null,
-      page_count: row['nb pages'] || null,
+      page_count: pageCount,
       summary: row['résumé']?.trim() || null,
       historical_period: row['Pérlode Hist']?.trim() || null,
       general_theme: row['Thématique Générale']?.trim() || null,
@@ -166,7 +200,45 @@ function cleanData(data: ExcelBookRow[]): any[] {
       groups_actors: row['Groupes et acteurs']?.trim() || null,
       sources: row['Sources']?.trim() || null
     };
-  }).filter(row => row.entry_id && row.title); // Filter out rows without essential data
+  }).filter(row => row.entry_id && row.title && row.title !== 'Titre non spécifié'); // Filter out rows without essential data
+}
+
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr || dateStr.trim() === '') return null;
+  
+  // Try different date formats
+  const formats = [
+    /^\d{1,2}\/\d{1,2}\/\d{2}$/, // MM/DD/YY or M/D/YY
+    /^\d{1,2}\/\d{1,2}\/\d{4}$/, // MM/DD/YYYY or M/D/YYYY
+    /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+  ];
+
+  const cleanDate = dateStr.trim();
+  
+  try {
+    // Handle MM/DD/YY format (most likely from your CSV)
+    if (formats[0].test(cleanDate) || formats[1].test(cleanDate)) {
+      const date = new Date(cleanDate);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    
+    // Handle ISO format
+    if (formats[2].test(cleanDate)) {
+      return new Date(cleanDate);
+    }
+    
+    // Try parsing as-is
+    const date = new Date(cleanDate);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  } catch (error) {
+    console.warn(`Failed to parse date: ${dateStr}`);
+  }
+  
+  return null;
 }
 
 async function insertBooks(books: any[]) {
@@ -202,6 +274,9 @@ async function insertBooks(books: any[]) {
       updated_at = CURRENT_TIMESTAMP
   `;
 
+  let successCount = 0;
+  let errorCount = 0;
+
   for (const book of books) {
     try {
       await query(insertQuery, [
@@ -211,12 +286,14 @@ async function insertBooks(books: any[]) {
         book.historical_period, book.general_theme, book.major_event,
         book.geography, book.groups_actors, book.sources
       ]);
+      successCount++;
     } catch (error) {
       console.error(`Error inserting book with entry_id ${book.entry_id}:`, error);
+      errorCount++;
     }
   }
 
-  console.log('Books inserted successfully!');
+  console.log(`✅ Books inserted successfully! ${successCount} success, ${errorCount} errors`);
 }
 
 async function createDefaultAdmin() {
@@ -241,7 +318,7 @@ async function createDefaultAdmin() {
 
 async function main() {
   try {
-    console.log('🚀 Starting data import process...');
+    console.log('🚀 Starting CSV data import process...');
     
     // Create database tables
     await createTables();
@@ -249,45 +326,58 @@ async function main() {
     // Create default admin user
     await createDefaultAdmin();
     
-    // Find Excel file
+    // Find CSV file - checking in project root first
     const possiblePaths = [
-      path.join(process.cwd(), 'SdSdC  Biblio V0.8.xlsm'),
-      path.join(process.cwd(), 'data', 'SdSdC  Biblio V0.8.xlsm'),
-      path.join(__dirname, '..', '..', 'SdSdC  Biblio V0.8.xlsm'),
-      path.join(__dirname, '..', '..', '..', 'SdSdC  Biblio V0.8.xlsm'),
+      path.join(process.cwd(), 'SdSdC - Biblio V0.8.csv'),
+      path.join(__dirname, '..', '..', 'SdSdC - Biblio V0.8.csv'),
+      path.join(__dirname, '..', '..', '..', 'SdSdC - Biblio V0.8.csv'),
+      path.join(process.cwd(), 'data', 'SdSdC - Biblio V0.8.csv'),
     ];
     
-    let excelPath: string | null = null;
+    let csvPath: string | null = null;
     for (const testPath of possiblePaths) {
+      console.log(`Checking path: ${testPath}`);
       if (fs.existsSync(testPath)) {
-        excelPath = testPath;
+        csvPath = testPath;
+        console.log(`✅ Found CSV file at: ${csvPath}`);
         break;
       }
     }
     
-    if (!excelPath) {
-      console.log('Excel file not found automatically. Please specify the path:');
-      console.log('Usage: npm run import-data [path-to-excel-file]');
-      console.log('Looked in paths:', possiblePaths);
+    if (!csvPath) {
+      console.error('❌ CSV file not found. Looked in paths:');
+      possiblePaths.forEach(p => console.log(`  - ${p}`));
+      console.log('\nPlease ensure "SdSdC - Biblio V0.8.csv" is in your project root directory.');
       return;
     }
     
-    // Read Excel data
-    const rawData = readExcelFile(excelPath);
+    // Read CSV data
+    const rawData = readCSVFile(csvPath);
     
     // Clean and format data
     const cleanedBooks = cleanData(rawData);
     console.log(`Processed ${cleanedBooks.length} valid book records`);
     
+    if (cleanedBooks.length === 0) {
+      console.error('❌ No valid book records found in CSV file');
+      return;
+    }
+
+    // Show sample of first book for verification
+    if (cleanedBooks.length > 0) {
+      console.log('📖 Sample book record:');
+      console.log(JSON.stringify(cleanedBooks[0], null, 2));
+    }
+    
     // Insert into database
     await insertBooks(cleanedBooks);
     
-    console.log('✅ Data import completed successfully!');
+    console.log('✅ CSV data import completed successfully!');
     console.log(`📚 Imported ${cleanedBooks.length} books`);
     console.log('👤 Created default admin user: admin@library.com');
     
   } catch (error) {
-    console.error('❌ Error during data import:', error);
+    console.error('❌ Error during CSV data import:', error);
     process.exit(1);
   }
 }
