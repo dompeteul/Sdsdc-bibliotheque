@@ -144,13 +144,17 @@ async function initializeDatabase() {
     } else {
       console.log(`📚 Database already has ${bookCount} books. Skipping import.`);
     }
-  } catch (error) {
-    if (error.message?.includes('relation "books" does not exist')) {
+  } catch (error: any) {
+    if (error?.message?.includes('relation "books" does not exist')) {
       console.log('📚 Database tables don\'t exist. Running data import...');
-      await importData();
-      console.log('✅ Data import completed!');
+      try {
+        await importData();
+        console.log('✅ Data import completed!');
+      } catch (importError: any) {
+        console.error('❌ Error during data import:', importError.message);
+      }
     } else {
-      console.error('Error checking database:', error);
+      console.error('❌ Error checking database:', error?.message || error);
     }
   }
 }
